@@ -1,6 +1,9 @@
 import os
 import json
 import requests
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime
 from utils.error_responses import ErrorResponses
 from model.dataset import DatasetModel
 from model.metric import MetricModel
@@ -8,19 +11,34 @@ from model.repository import RepositoryModel
 from model.analysis_request import AnalysisRequestModel
 from model.metric_category import MetricCategory
 from clustering.cluster import get_cluster
+from middleware.validation import validate_json, validate_email, validate_github_url
 from dotenv import load_dotenv
 from db import db
 from nanoid import generate
 from waitress import serve
 
 # Flask settings
-from flask import Flask, Response, request
+from flask import Flask, Response, request, jsonify
 from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
 # Load environment variables
 load_dotenv()
+
+# Configurar logging
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+file_handler = RotatingFileHandler('logs/healthyenv.log', maxBytes=10240, backupCount=10)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+
+app.logger.addHandler(file_handler)
+app.logger.setLevel(logging.INFO)
+app.logger.info('HealthyEnv startup')
 
 # Database settings
 db_user = os.environ['DB_USER']
@@ -102,23 +120,37 @@ def metrics():
 
 # Route to create a new analysis request
 @app.route('/datasets/<dataset_id>/request', methods=['POST'])
+@validate_json('name', 'email', 'repo_url')
 def analysis_request(dataset_id: str):
-  # Check if the provided dataset id matches an existent dataset
-  if request.method == 'POST':
-    if not DatasetModel.find_dataset(dataset_id):
-      return ErrorResponses.non_existent_dataset
+  if not DatasetModel.find_dataset(dataset_id):
+    return ErrorResponses.non_existent_dataset
+  
+  data = request.get_json()
+  
+  # Validações específicas
+  if not validate_email(data['email']):
+    return jsonify({'error': 'Invalid email format'}), 400
+  
+  if not validate_github_url(data['repo_url']):
+    return jsonify({'error': 'Invalid GitHub repository URL'}), 400
+  
+  try:
+    analysis_request = AnalysisRequestModel(
+      generate(size=10), 
+      dataset_id, 
+      data['name'], 
+      data['email'], 
+      data['repo_url']
+    )
+    analysis_request.create_request()
     
-    # Get the data and save to database
-    data = request.get_json(force=True)
-    try:
-      analysis_request = AnalysisRequestModel(generate(size=10), dataset_id, data['name'], data['email'], data['repo_url'])
-      analysis_request.create_request()
-    except KeyError:
-      return ErrorResponses.missing_info
-
     return Response(
       json.dumps(analysis_request.json(), indent=2),
-      status=200, mimetype='application/json')
+      status=200, 
+      mimetype='application/json'
+    )
+  except Exception as e:
+    return jsonify({'error': 'Failed to create analysis request'}), 500
 
 
 # Route to get all requests of an user by email
@@ -135,7 +167,6 @@ def metric_categories():
   return Response(
     json.dumps(MetricCategory.get_all_metrics_categories_json(), indent=2),
     status=200, mimetype='application/json')
-
 
 # Route to get GitHub auth token
 @app.route('/auth/github_token')
