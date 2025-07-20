@@ -1,13 +1,7 @@
 export default class Constants {
-  // Development URL
-  // static baseUrl = '';
+  static baseUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://seu-dominio-api.com' 
+    : 'http://localhost:5000';
 
-  // Production URL
-  static baseUrl = '';
-
-  // Development
-  static ghCliendId = '';
-
-  // Production
-  // static ghCliendId = '';
+  static ghCliendId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID!;
 }
