@@ -25,15 +25,32 @@ const Requests = () => {
     if (typeof window !== "undefined") {
       try {
         const data = localStorage.getItem('userData')
-        setUserData(JSON.parse(data))
+        console.log('userData do localStorage:', data);
+        
+        if (!data) {
+          console.error('Nenhum userData encontrado no localStorage');
+          router.push('/auth');
+          return;
+        }
+        
+        const parsedData = JSON.parse(data);
+        console.log('userData parseado:', parsedData);
+        setUserData(parsedData)
 
-        const response = await axios.get(`https://api.github.com/users/${JSON.parse(data).login}/repos`)
+        if (!parsedData.login) {
+          console.error('Login não encontrado no userData');
+          return;
+        }
+
+        const response = await axios.get(`https://api.github.com/users/${parsedData.login}/repos`)
 
         if (response.status == 200) {
           setRepositories(response.data)
           setIsLoadingRepositories(false)
         }
-      } catch (e) { }
+      } catch (e) { 
+        console.error('Erro ao carregar repositórios:', e);
+      }
     }
   }
 
@@ -56,31 +73,68 @@ const Requests = () => {
   }
 
   async function loadDatasets() {
-    const response = await axios.get(`${Constants.baseUrl}/datasets`)
-    const optionList = []
-    response.data.items.forEach((dataset) => {
-      datasetsIdList.push(dataset.id)
-      optionList.push(
-        <option value={dataset.id} key={dataset.id}>
-          {Buffer.from(dataset['name'], 'utf-8').toString()}
-        </option>
-      )
-    })
-    setSelectedDataset(datasetsIdList[0])
-    setDatasetsOptions([...optionList])
+    try {
+      console.log('Carregando datasets...');
+      const response = await axios.get(`${Constants.baseUrl}/datasets`)
+      console.log('Resposta dos datasets:', response.data);
+      
+      const optionList = []
+      response.data.items.forEach((dataset) => {
+        datasetsIdList.push(dataset.id)
+        optionList.push(
+          <option value={dataset.id} key={dataset.id}>
+            {Buffer.from(dataset['name'], 'utf-8').toString()}
+          </option>
+        )
+      })
+      setSelectedDataset(datasetsIdList[0])
+      setDatasetsOptions([...optionList])
+      console.log('Dataset selecionado:', datasetsIdList[0]);
+    } catch (error) {
+      console.error('Erro ao carregar datasets:', error);
+      if (error.response) {
+        console.error('Detalhes do erro:', error.response.status, error.response.data);
+      }
+    }
   }
 
   async function submitRequest(username, email, repo) {
-    const response = await axios.post(
-      `${Constants.baseUrl}/datasets/${selectedDataset}/request`, {
-      name: username,
-      email: email,
-      repo_url: repo,
+    console.log('Dados sendo enviados:', { username, email, repo, selectedDataset });
+    
+    // Se o email não estiver disponível, usar o login como fallback
+    const userEmail = email || `${username}@users.noreply.github.com`;
+    
+    if (!userEmail) {
+      alert('Email não encontrado. Faça login novamente.');
+      return;
     }
-    )
-    if (response.status >= 200) {
-    } else {
-      alert('Algo deu errado. Verifique os dados digitados e tente novamente.')
+    
+    if (!selectedDataset) {
+      alert('Nenhum dataset selecionado.');
+      return;
+    }
+    
+    try {
+      const response = await axios.post(
+        `${Constants.baseUrl}/datasets/${selectedDataset}/request`, {
+        name: username,
+        email: userEmail,
+        repo_url: repo,
+      }
+      )
+      if (response.status >= 200) {
+        console.log('Requisição enviada com sucesso:', response.data);
+      } else {
+        alert('Algo deu errado. Verifique os dados digitados e tente novamente.')
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+      if (error.response) {
+        console.error('Detalhes do erro:', error.response.data);
+        alert(`Erro: ${error.response.data.error || 'Erro desconhecido'}`);
+      } else {
+        alert('Erro de conexão. Verifique se o servidor está rodando.');
+      }
     }
   }
 
@@ -100,8 +154,9 @@ const Requests = () => {
     repositories.forEach((repository, index) => {
       repoItemList.push(
         <div className="bg-white h-[45px] rounded-md mb-2 px-4 py-2 flex flex-row items-center justify-between cursor-pointer hover:shadow-md" key={`repo_${index}`} onClick={() => {
+          const userEmail = userData['email'] || `${userData['login']}@users.noreply.github.com`;
           submitRequest(userData['login'], userData['email'], repository['svn_url']).then(() => {
-            router.push(`/dashboard/requests/${userData['email']}`)
+            router.push(`/dashboard/requests/${userEmail}`)
           })
         }} >
           <span className="text-lg">{repository['name']}</span>
