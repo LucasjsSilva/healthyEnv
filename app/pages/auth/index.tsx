@@ -43,16 +43,14 @@ export default function Auth() {
           <span className={styles.subtitle}>
             Log in or sign up with one of the following options:
           </span>
-          <Link href={`https://github.com/login/oauth/authorize?client_id=${Constants.ghCliendId}&redirect_uri=http://localhost:3000/auth/github?next=${router.query.next}`}>
-            <a>
-              <div className={styles.option}>
-                <FontAwesomeIcon icon={faGithub} />
-                <span className={styles.optionLabel}>GitHub</span>
-              </div>
-            </a>
+          <Link href={`https://github.com/login/oauth/authorize?client_id=${Constants.ghCliendId}&scope=user:email&redirect_uri=http://localhost:3000/auth/github?next=${router.query.next}`}>
+            <div className={styles.option}>
+              <FontAwesomeIcon icon={faGithub} />
+              <span className={styles.optionLabel}>GitHub</span>
+            </div>
           </Link>
-          <Link href='/'>
-            <a className={styles.backHomeButton}>Go back to HealthyEnv home</a>
+          <Link href='/' className={styles.backHomeButton}>
+            Go back to HealthyEnv home
           </Link>
         </div>
       ) : (
