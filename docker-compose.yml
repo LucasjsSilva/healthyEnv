@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: helthyenv
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  api:
+    build: ./api
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: helthyenv
+      GH_CLIENT_ID: ${GH_CLIENT_ID:-Ov23lihHmBF2cu8KDPqg}
+      GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-6e6e235e15acf2f2d1029d175d176ba3ea42397f}
+    volumes:
+      - ./api:/app
+      - /app/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./app
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5000
+      NEXT_PUBLIC_GITHUB_CLIENT_ID: ${GH_CLIENT_ID:-Ov23lihHmBF2cu8KDPqg}
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+
+volumes:
+  mysql_data:
