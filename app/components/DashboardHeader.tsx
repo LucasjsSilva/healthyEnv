@@ -60,18 +60,14 @@ export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
       <div id="mySidenav" className={styles.sidenav} style={showDrawer ? { minWidth: '300px' } : { minWidth: '0px' }}>
         <a href="javascript:void(0)" className={styles.closebtn} onClick={() => setShowDrawer(!showDrawer)}>&times;</a>
         <Link href='/dashboard/datasets'>
-          <a>
             {selectedIndex == 1
               ? <span className={styles.navLink} style={{ color: '#111', fontWeight: 'bold' }}>Repository analysis</span>
               : <span className={styles.navLink}>Repository analysis</span>}
-          </a>
         </Link>
         <Link href='/dashboard/requests'>
-          <a>
             {selectedIndex == 2
               ? <span className={styles.navLink} style={{ color: '#111', fontWeight: 'bold' }}>Submit a repository</span>
               : <span className={styles.navLink}>Submit a repository</span>}
-          </a>
         </Link>
         {/* <Link href='/dashboard/help'>
           <a>
@@ -105,23 +101,17 @@ export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
             <FontAwesomeIcon icon={faBars} />
           </div>
           <Link href='/'>
-            <a>
-              <span className={styles.title}>HealthyEnv</span>
-            </a>
+            <span className={styles.title}>HealthyEnv</span>
           </Link>
           <Link href='/dashboard/datasets'>
-            <a>
               {selectedIndex == 1
                 ? <span className={styles.link} style={{ color: '#FFF', fontWeight: 'bold' }}>Repository analysis</span>
                 : <span className={styles.link}>Repository analysis</span>}
-            </a>
           </Link>
           <Link href='/dashboard/requests'>
-            <a>
               {selectedIndex == 2
                 ? <span className={styles.link} style={{ color: '#FFF', fontWeight: 'bold' }}>Submit a repository</span>
                 : <span className={styles.link}>Submit a repository</span>}
-            </a>
           </Link>
           {/* <Link href='/dashboard/help'>
             <a>

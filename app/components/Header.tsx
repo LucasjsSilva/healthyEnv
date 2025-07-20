@@ -24,42 +24,32 @@ const Header = ({ selectedIndex }: SelectedIndex) => {
           alignItems: 'center',
         }}>
           <Link href='/'>
-            <a>
-              <span className={styles.title}>HealthyEnv</span>
-            </a>
+            <span className={styles.title}>HealthyEnv</span>
           </Link>
           {/* <Link href='/how-it-works'>
-            <a>
               {selectedIndex == 1
                 ? <span className={styles.link} style={{ color: '#2590DA', fontWeight: 'bold' }}>How it works</span>
                 : <span className={styles.link}>How it works</span>}
-            </a>
           </Link>
           <Link href='/api-docs'>
-            <a>
               {selectedIndex == 2
                 ? <span className={styles.link} style={{ color: '#2590DA', fontWeight: 'bold' }}>API</span>
                 : <span className={styles.link}>API</span>}
-            </a>
           </Link>
           <Link href='/docs'>
-            <a>
               {selectedIndex == 3
                 ? <span className={styles.link} style={{ color: '#2590DA', fontWeight: 'bold' }}>Docs</span>
                 : <span className={styles.link}>Docs</span>}
-            </a>
           </Link> */}
           <Link href='/about'>
-            <a>
               {selectedIndex == 4
                 ? <span className={styles.link} style={{ color: '#2590DA', fontWeight: 'bold' }}>About</span>
                 : <span className={styles.link}>About</span>}
-            </a>
           </Link>
         </div>
         <div className={styles.options}>
           <Link href='/auth'>
-            <a><span className="px-3 py-1 mr-5 bg-blue-500 rounded-md cursor-pointer"><b>Log in</b></span></a>
+            <span className="px-3 py-1 mr-5 bg-blue-500 rounded-md cursor-pointer"><b>Log in</b></span>
           </Link>
           <a href='https://github.com/SERG-UFPI/healthyEnv' className={styles.icon}>
             <FontAwesomeIcon icon={faGithub} />

@@ -30,15 +30,15 @@ export default function Home() {
             </span>
             <div className={styles.linksList}>
               <div >
-                <Link href='/dashboard/datasets'>
-                  <a className={`
+                <Link href='/dashboard/datasets' className={`
                 bg-blue-500 text-white px-5 py-3 rounded-full shadow-md cursor-pointer
-              `}>Explore the dataset</a>
+              `}>
+                  Explore the dataset
                 </Link>
               </div>
               {/* <div className={styles.simpleButton}>
                 <Link href='/docs'>
-                  <a>See the docs</a>
+                  See the docs
                 </Link>
                 <FontAwesomeIcon icon={faChevronRight} style={{ paddingLeft: 10 }} />
               </div> */}

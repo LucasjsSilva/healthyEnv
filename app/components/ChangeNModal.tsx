@@ -54,7 +54,7 @@ const ChangeNModal = (props: ChangeNModalProps) => {
             props.refreshAnalysis(props.datasetId, props.userName, props.repoName, nValue)
           }}>
             <Link href={`/dashboard/datasets/${props.datasetId}/analyze/${props.userName}/${props.repoName}?near=${nValue}`}>
-              <a>Confirm</a>
+              Confirm
             </Link>
           </div>
         </div>
