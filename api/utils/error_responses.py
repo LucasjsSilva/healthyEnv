@@ -30,6 +30,33 @@ class ErrorResponses:
     }, indent=2), status=400, mimetype='application/json'
   )
 
+  @staticmethod
+  def internal_server_error():
+    return Response(
+      json.dumps({
+        'message': 'Internal server error', 
+        'description': 'An unexpected error occurred. Please try again later.'
+      }, indent=2), status=500, mimetype='application/json'
+    )
+
+  @staticmethod
+  def not_found(description: str):
+    return Response(
+      json.dumps({
+        'message': 'Not found', 
+        'description': description
+      }, indent=2), status=404, mimetype='application/json'
+    )
+
+  @staticmethod
+  def bad_request(description: str):
+    return Response(
+      json.dumps({
+        'message': 'Bad request', 
+        'description': description
+      }, indent=2), status=400, mimetype='application/json'
+    )
+
   def invalid_n(repos_count: int):
     return Response(
       json.dumps({

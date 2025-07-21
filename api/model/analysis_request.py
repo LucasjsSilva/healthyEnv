@@ -1,6 +1,7 @@
 from ast import For
 import enum
 import json
+from datetime import datetime
 from sqlalchemy import ForeignKey, Enum
 from db import db
 
@@ -18,6 +19,8 @@ class AnalysisRequestModel(db.Model):
   email = db.Column(db.String(80))
   repo_url = db.Column(db.String(180))
   status = db.Column(Enum(AnalysisStatusEnum))
+  created_at = db.Column(db.DateTime, default=datetime.now)
+  updated_at = db.Column(db.DateTime, default=datetime.now)
 
 
   def __init__(self, id,id_target_dataset, name, email, repo_url, status = AnalysisStatusEnum.RECEIVED):
@@ -27,6 +30,8 @@ class AnalysisRequestModel(db.Model):
     self.email = email
     self.repo_url = repo_url
     self.status = status
+    self.created_at = datetime.now()
+    self.updated_at = datetime.now()
 
 
   def json(self):
@@ -37,13 +42,39 @@ class AnalysisRequestModel(db.Model):
         'email': self.email,
         'repo_url': self.repo_url,
         'status': str(self.status).split('.')[1],
+        'created_at': self.created_at.isoformat() if self.created_at else None,
+        'updated_at': self.updated_at.isoformat() if self.updated_at else None,
       }
+    }
+
+  def to_dict(self):
+    """Convert to dictionary for JSON serialization"""
+    return {
+      'id': self.id,
+      'id_dataset': self.id_target_dataset,
+      'name': self.name,
+      'email': self.email,
+      'repo_url': self.repo_url,
+      'status': str(self.status).split('.')[1],
+      'created_at': self.created_at.isoformat() if self.created_at else None,
+      'updated_at': self.updated_at.isoformat() if self.updated_at else None,
     }
 
 
   def create_request(self):
     db.session.add(self)
     db.session.commit()
+
+
+  @classmethod
+  def get_all_requests(cls):
+    """Get all analysis requests ordered by creation date"""
+    return cls.query.order_by(cls.created_at.desc()).all()
+
+  @classmethod  
+  def get_by_id(cls, request_id):
+    """Get analysis request by ID"""
+    return cls.query.filter_by(id=request_id).first()
 
 
   @classmethod

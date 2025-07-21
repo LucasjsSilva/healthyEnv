@@ -49,3 +49,8 @@ class MetricModel(db.Model):
       })
 
     return json
+
+  @classmethod
+  def get_all_metrics(cls):
+    """Get all metrics as model instances"""
+    return cls.query.all()

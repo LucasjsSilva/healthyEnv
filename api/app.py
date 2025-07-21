@@ -12,6 +12,7 @@ from model.analysis_request import AnalysisRequestModel
 from model.metric_category import MetricCategory
 from clustering.cluster import get_cluster
 from middleware.validation import validate_json, validate_email, validate_github_url
+from services.github_processor import GitHubProcessor
 from dotenv import load_dotenv
 from db import db
 from nanoid import generate
@@ -187,6 +188,129 @@ def auth_github():
   return Response(
     r.text,
     status=200, mimetype='application/json')
+
+
+# Admin endpoints
+@app.route('/admin/requests', methods=['GET'])
+def get_all_requests():
+  """Get all analysis requests for admin panel"""
+  try:
+    requests = AnalysisRequestModel.get_all_requests()
+    return Response(
+      json.dumps([req.to_dict() for req in requests]),
+      status=200, 
+      mimetype='application/json'
+    )
+  except Exception as e:
+    app.logger.error(f'Error getting all requests: {str(e)}')
+    return ErrorResponses.internal_server_error()
+
+@app.route('/admin/requests/<request_id>/status', methods=['PUT'])
+@validate_json('status')
+def update_request_status(request_id):
+  """Update the status of an analysis request"""
+  try:
+    data = request.get_json()
+    new_status = data['status']
+    
+    # Validate status
+    valid_statuses = ['RECEIVED', 'IN PROGRESS', 'DONE']
+    if new_status not in valid_statuses:
+      return ErrorResponses.bad_request('Invalid status. Must be one of: ' + ', '.join(valid_statuses))
+    
+    # Find and update request
+    analysis_request = AnalysisRequestModel.get_by_id(request_id)
+    if not analysis_request:
+      return ErrorResponses.not_found('Analysis request not found')
+    
+    analysis_request.status = new_status
+    
+    # If status is changed to DONE, automatically process the repository
+    if new_status == 'DONE':
+      try:
+        processor = GitHubProcessor()
+        processor.add_repository_to_dataset(
+          dataset_id=analysis_request.id_target_dataset,
+          repo_url=analysis_request.repo_url,
+          submitter_name=analysis_request.name
+        )
+        app.logger.info(f'Repository {analysis_request.repo_url} successfully processed and added to dataset {analysis_request.id_target_dataset}')
+      except Exception as processing_error:
+        app.logger.error(f'Error processing repository {analysis_request.repo_url}: {str(processing_error)}')
+        # Don't fail the status update if processing fails
+        # The admin can retry later
+    
+    db.session.commit()
+    
+    app.logger.info(f'Request {request_id} status updated to {new_status}')
+    return Response(
+      json.dumps(analysis_request.to_dict()),
+      status=200,
+      mimetype='application/json'
+    )
+    
+  except Exception as e:
+    app.logger.error(f'Error updating request status: {str(e)}')
+    db.session.rollback()
+    return ErrorResponses.internal_server_error()
+
+@app.route('/admin/requests/<request_id>', methods=['DELETE'])
+def delete_request(request_id):
+  """Delete an analysis request"""
+  try:
+    analysis_request = AnalysisRequestModel.get_by_id(request_id)
+    if not analysis_request:
+      return ErrorResponses.not_found('Analysis request not found')
+    
+    db.session.delete(analysis_request)
+    db.session.commit()
+    
+    app.logger.info(f'Request {request_id} deleted')
+    return Response(
+      json.dumps({'message': 'Request deleted successfully'}),
+      status=200,
+      mimetype='application/json'
+    )
+    
+  except Exception as e:
+    app.logger.error(f'Error deleting request: {str(e)}')
+    db.session.rollback()
+    return ErrorResponses.internal_server_error()
+
+@app.route('/admin/requests/<request_id>/process', methods=['POST'])
+def process_request_manually(request_id):
+  """Manually process a repository request"""
+  try:
+    analysis_request = AnalysisRequestModel.get_by_id(request_id)
+    if not analysis_request:
+      return ErrorResponses.not_found('Analysis request not found')
+    
+    processor = GitHubProcessor()
+    repository = processor.add_repository_to_dataset(
+      dataset_id=analysis_request.id_target_dataset,
+      repo_url=analysis_request.repo_url,
+      submitter_name=analysis_request.name
+    )
+    
+    # Update status to DONE
+    analysis_request.status = 'DONE'
+    db.session.commit()
+    
+    app.logger.info(f'Request {request_id} manually processed successfully')
+    return Response(
+      json.dumps({
+        'message': 'Repository processed and added to dataset successfully',
+        'repository_id': repository.id,
+        'repository_name': repository.name
+      }),
+      status=200,
+      mimetype='application/json'
+    )
+    
+  except Exception as e:
+    app.logger.error(f'Error manually processing request: {str(e)}')
+    db.session.rollback()
+    return ErrorResponses.internal_server_error()
 
 
 if __name__ == '__main__':
