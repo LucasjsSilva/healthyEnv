@@ -16,8 +16,9 @@ class RepositoryModel(db.Model):
   commits = db.Column(db.Integer)
 
 
-  def __init__(self, id, name, language, loc, stars, forks, open_issues, contributors, commits):
+  def __init__(self, id, id_dataset, name, language, loc=0, stars=0, forks=0, open_issues=0, contributors=0, commits=0):
     self.id = id
+    self.dataset_id = id_dataset
     self.name = name
     self.language = language
     self.loc = loc
@@ -80,3 +81,8 @@ class RepositoryModel(db.Model):
       return repostory.json()
     else:
       return None
+
+  @classmethod
+  def find_repository_by_name(cls, dataset_id: str, repo_name: str):
+    """Find repository by name and return the model instance"""
+    return cls.query.filter_by(dataset_id=dataset_id, name=repo_name).first()
