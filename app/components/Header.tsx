@@ -46,6 +46,11 @@ const Header = ({ selectedIndex }: SelectedIndex) => {
                 ? <span className={styles.link} style={{ color: '#2590DA', fontWeight: 'bold' }}>About</span>
                 : <span className={styles.link}>About</span>}
           </Link>
+          <Link href='/admin'>
+              {selectedIndex == 5
+                ? <span className={styles.link} style={{ color: '#2590DA', fontWeight: 'bold' }}>Admin</span>
+                : <span className={styles.link}>Admin</span>}
+          </Link>
         </div>
         <div className={styles.options}>
           <Link href='/auth'>
