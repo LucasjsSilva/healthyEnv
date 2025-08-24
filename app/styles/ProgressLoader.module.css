@@ -1,0 +1,147 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loader {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+}
+
+.spinnerContainer {
+  margin-bottom: 24px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #2590DA;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.content {
+  text-align: center;
+}
+
+.message {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 500;
+  min-height: 1.5rem;
+}
+
+.progressSection {
+  margin: 20px 0;
+}
+
+.progressBar {
+  width: 100%;
+  height: 8px;
+  background: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #2590DA, #206BA0);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.stepInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stepText {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.currentStepText {
+  font-size: 0.85rem;
+  color: #2590DA;
+  font-style: italic;
+}
+
+.loadingTips {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #2590DA;
+}
+
+.loadingTips p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.4;
+}
+
+.loadingTips strong {
+  color: #2590DA;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .loader {
+    padding: 32px 24px;
+    margin: 20px;
+  }
+
+  .message {
+    font-size: 1.1rem;
+  }
+
+  .loadingTips {
+    padding: 12px;
+  }
+
+  .loadingTips p {
+    font-size: 0.85rem;
+  }
+}
+
+/* Animation for smooth entrance */
+.loader {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
