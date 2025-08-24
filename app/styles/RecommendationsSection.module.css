@@ -1,0 +1,100 @@
+.recommendationsContainer {
+  margin: 20px 0;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.sectionTitle {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.recommendationCard {
+  margin-bottom: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  transition: transform 0.2s ease;
+}
+
+.recommendationCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.recommendationHeader {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.recommendationIcon {
+  font-size: 1.5rem;
+  margin-right: 12px;
+  margin-top: 2px;
+}
+
+.recommendationHeader h4 {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.metricName {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+}
+
+.recommendationDescription {
+  margin: 8px 0 12px 0;
+  line-height: 1.5;
+  color: #555;
+}
+
+.actionItems {
+  margin-top: 12px;
+}
+
+.actionItems strong {
+  color: #333;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.actionItems ul {
+  margin: 8px 0 0 20px;
+  padding: 0;
+}
+
+.actionItems li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+  color: #555;
+}
+
+.noRecommendations {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8fff8;
+  border-radius: 8px;
+  border: 2px dashed #4caf50;
+}
+
+.successIcon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.noRecommendations h3 {
+  color: #2e7d32;
+  margin-bottom: 8px;
+}
+
+.noRecommendations p {
+  color: #666;
+  margin: 0;
+}
