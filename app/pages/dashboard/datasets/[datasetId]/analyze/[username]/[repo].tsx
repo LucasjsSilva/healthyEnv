@@ -16,8 +16,13 @@ import RepoInfos from "../../../../../../components/RepoInfos"
 import NearReposPlot from "../../../../../../components/NearReposPlot"
 import MetricsHint from "../../../../../../components/MetricsHint"
 import AnalysisSummarySection from "../../../../../../components/AnalysisSummarySection"
+import RecommendationsSection from "../../../../../../components/RecommendationsSection"
 import ChangeRepoModal from "../../../../../../components/ChangeRepoModal"
 import ChangeNModal from "../../../../../../components/ChangeNModal"
+import ProgressLoader from "../../../../../../components/ProgressLoader"
+import FeedbackWidget from "../../../../../../components/FeedbackWidget"
+import TutorialTooltip from "../../../../../../components/TutorialTooltip"
+import generateRecommendations from "../../../../../../utils/recommendationsEngine"
 
 enum MetricSituation {
   Ok = 'OK',
@@ -34,6 +39,8 @@ const Repo = () => {
   const [metricsData, setMetricsData] = useState([])
   const [requestPayloads, setRequestPayloads] = useState([])
   const [analysisSummary, setAnalysisSummary] = useState({})
+  const [recommendations, setRecommendations] = useState([])
+  const [showAnalysisTutorial, setShowAnalysisTutorial] = useState(false)
   const [nValue, setNValue] = useState(1)
 
   // Modal
@@ -116,7 +123,7 @@ const Repo = () => {
               metricSituation = MetricSituation.Ok
               okMetricsCount++
             } else {
-              if (metric['id']['is_upper']) {
+              if (metric['is_upper']) {
                 if (resultsResponse.selected['metrics'][metric['id']] >= firstQuartile) {
                   metricSituation = MetricSituation.Reasonable
                   reasonableMetricsCount++
@@ -159,6 +166,17 @@ const Repo = () => {
 
       setMetricsData(metricsData)
       setAnalysisSummary({ okMetricsCount, reasonableMetricsCount, badMetricsCount })
+      
+      // Generate recommendations based on metrics analysis
+      const allMetrics = metricsData.flatMap(category => category.metrics)
+      const generatedRecommendations = generateRecommendations(allMetrics)
+      setRecommendations(generatedRecommendations)
+      
+      // Show tutorial for first-time users on analysis page
+      const hasSeenAnalysisTutorial = localStorage.getItem('healthyenv-analysis-tutorial-completed')
+      if (!hasSeenAnalysisTutorial) {
+        setTimeout(() => setShowAnalysisTutorial(true), 2000)
+      }
     })
 
     setIsLoading(false)
@@ -168,25 +186,83 @@ const Repo = () => {
     loadRepo(dataset, `${user}/${repo}`, n)
   }
 
+  const handleFeedbackSubmit = async (feedbackData: any) => {
+    try {
+      // TODO: Implement feedback submission to backend
+      console.log('Feedback submitted:', feedbackData)
+      // Example API call:
+      // await axios.post(`${Constants.baseUrl}/feedback`, feedbackData)
+    } catch (error) {
+      console.error('Error submitting feedback:', error)
+      throw error
+    }
+  }
+
+  const analysisSteps = [
+    "Conectando ao banco de dados",
+    "Obtendo métricas do repositório",
+    "Calculando similaridade com outros projetos",
+    "Gerando recomendações",
+    "Preparando visualizações"
+  ]
+
+  const handleAnalysisTutorialComplete = () => {
+    localStorage.setItem('healthyenv-analysis-tutorial-completed', 'true')
+    setShowAnalysisTutorial(false)
+  }
+
+  const analysisTutorialSteps = [
+    {
+      id: 'repo-info',
+      title: 'Informações do Repositório',
+      description: 'Aqui você vê as informações básicas do repositório analisado: linguagem, stars, forks, etc.',
+      target: 'repo-info-section',
+      position: 'right' as const
+    },
+    {
+      id: 'analysis-summary',
+      title: 'Resumo da Análise',
+      description: 'Este gráfico mostra a distribuição das métricas: quantas estão saudáveis (verde), razoáveis (amarelo) ou ruins (vermelho).',
+      target: 'analysis-summary-section',
+      position: 'left' as const
+    },
+    {
+      id: 'similar-repos',
+      title: 'Repositórios Similares',
+      description: 'Mostra os repositórios mais similares encontrados no dataset usando machine learning.',
+      target: 'distribution-section',
+      position: 'top' as const
+    },
+    {
+      id: 'metrics-plots',
+      title: 'Gráficos das Métricas',
+      description: 'Cada gráfico mostra como seu repositório se compara com outros similares. O fundo colorido indica se a métrica está boa, razoável ou ruim.',
+      target: 'metrics-section',
+      position: 'top' as const
+    },
+    {
+      id: 'recommendations',
+      title: 'Recomendações Personalizadas',
+      description: 'Com base nas métricas problemáticas, geramos recomendações específicas para melhorar a saúde do seu projeto.',
+      target: 'recommendations-section',
+      position: 'top' as const
+    }
+  ]
+
   return (
     <>
       <Head>
         <title>{`HealthyEnv - Análise de ${router.query.repo}`} </title>
       </Head>
       <DashboardHeader selectedIndex={1} />
+      <ProgressLoader 
+        isLoading={isLoading}
+        message="Analisando repositório"
+        steps={analysisSteps}
+        showProgress={true}
+      />
       {
-        isLoading
-          ? <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '80vh'
-          }}>
-            <Dots color='#000000' size={18} speed={1} animating={true} />
-            Obtaining results...
-          </div>
-          : <div className={styles.container}>
+        !isLoading && <div className={styles.container}>
             <div className={styles['clustering-summary']}>
               <div className={styles['selected-repo-info']}>
                 <div className={styles.repoInfoTitle}>
@@ -242,7 +318,7 @@ const Repo = () => {
               <NearReposPlot selectedRepoInfo={selectedRepoInfo} referenceReposInfo={referenceReposInfo} />
             </div>
 
-            <div className={styles.section}>
+            <div className={styles.section} id="metrics-section">
               <div className={styles.sectionHeader}>
                 <span className={styles['section-title']}>Metrics applied</span>
                 <MetricsHint />
@@ -256,6 +332,13 @@ const Repo = () => {
                   />
                 })
               }
+            </div>
+            
+            <div className={styles.section} id="recommendations-section">
+              <div className={styles.sectionHeader}>
+                <span className={styles['section-title']}>Recomendações de Melhoria</span>
+              </div>
+              <RecommendationsSection recommendations={recommendations} />
             </div>
             {/* TODO: refazer esta seção, não ficou legal de nenhuma forma
             
@@ -287,6 +370,14 @@ const Repo = () => {
       <Popup open={openN} onClose={closeModalN} >
         <ChangeNModal closeModal={closeModalN} refreshAnalysis={refreshAnalysis} currNValue={+router.query.near} datasetCount={referenceReposInfo.length} datasetId={router.query.datasetId} userName={router.query.username} repoName={router.query.repo} />
       </Popup>
+      
+      <FeedbackWidget onSubmit={handleFeedbackSubmit} />
+      
+      <TutorialTooltip 
+        steps={analysisTutorialSteps}
+        isActive={showAnalysisTutorial}
+        onComplete={handleAnalysisTutorialComplete}
+      />
     </>
   )
 }
