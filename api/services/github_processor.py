@@ -7,6 +7,7 @@ from model.metric_repo import MetricRepoModel
 from db import db
 from nanoid import generate
 import logging
+from services.code_analysis_service import CodeAnalysisService
 
 class GitHubProcessor:
     def __init__(self):
@@ -14,6 +15,7 @@ class GitHubProcessor:
         self.headers = {}
         if self.github_token:
             self.headers['Authorization'] = f'token {self.github_token}'
+        self.code_analyzer = CodeAnalysisService()
         
     def extract_repo_info(self, repo_url):
         """Extract owner and repo name from GitHub URL"""
@@ -76,7 +78,16 @@ class GitHubProcessor:
                 else:
                     commits_count = len(commits_response.json()) if commits_response.json() else 0
             
-            return {
+            # Get advanced code quality metrics
+            try:
+                code_metrics = self.code_analyzer.analyze_repository(owner, repo, self.github_token)
+                logging.info(f"Code analysis completed for {owner}/{repo}")
+            except Exception as e:
+                logging.warning(f"Code analysis failed for {owner}/{repo}: {str(e)}")
+                code_metrics = self.code_analyzer._get_default_metrics()
+            
+            # Combine basic and advanced metrics
+            metrics = {
                 'name': f"{owner}/{repo}",
                 'language': primary_language,
                 'loc': loc,
@@ -87,8 +98,20 @@ class GitHubProcessor:
                 'commits': commits_count,
                 'description': repo_data.get('description', ''),
                 'created_at': repo_data.get('created_at', ''),
-                'updated_at': repo_data.get('updated_at', '')
+                'updated_at': repo_data.get('updated_at', ''),
+                # Advanced metrics
+                'cyclomatic_complexity': code_metrics.get('cyclomatic_complexity', 0),
+                'code_duplication': code_metrics.get('code_duplication', 0),
+                'technical_debt': code_metrics.get('technical_debt', 0),
+                'test_coverage': code_metrics.get('test_coverage', 0),
+                'maintainability_index': code_metrics.get('maintainability_index', 0),
+                'code_smells': code_metrics.get('code_smells', 0),
+                'comment_ratio': code_metrics.get('comment_ratio', 0),
+                'avg_function_length': code_metrics.get('avg_function_length', 0),
+                'max_function_complexity': code_metrics.get('max_function_complexity', 0)
             }
+            
+            return metrics
             
         except Exception as e:
             logging.error(f"Error fetching metrics for {owner}/{repo}: {str(e)}")
@@ -131,21 +154,30 @@ class GitHubProcessor:
             # Get all available metrics
             available_metrics = MetricModel.get_all_metrics()
             
-            # Create metric records for basic GitHub metrics only
-            basic_metric_mapping = {
+            # Create metric records for all available metrics
+            metric_mapping = {
                 'stars': metrics['stars'],
                 'forks': metrics['forks'], 
                 'open issues': metrics['open_issues'],
                 'contributors': metrics['contributors'],
-                'commits': metrics['commits']
+                'commits': metrics['commits'],
+                'cyclomatic complexity': metrics['cyclomatic_complexity'],
+                'code duplication': metrics['code_duplication'],
+                'technical debt': metrics['technical_debt'],
+                'test coverage': metrics['test_coverage'],
+                'maintainability index': metrics['maintainability_index'],
+                'code smells': metrics['code_smells'],
+                'comment ratio': metrics['comment_ratio'],
+                'average function length': metrics['avg_function_length'],
+                'maximum function complexity': metrics['max_function_complexity']
             }
             
             for metric in available_metrics:
                 metric_name_lower = metric.name.lower()
                 value = 0
                 
-                # Map the metrics we can extract from GitHub
-                for key, val in basic_metric_mapping.items():
+                # Map the metrics we can extract from GitHub and code analysis
+                for key, val in metric_mapping.items():
                     if key in metric_name_lower:
                         value = val
                         break
