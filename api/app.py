@@ -11,6 +11,7 @@ from model.repository import RepositoryModel
 from model.analysis_request import AnalysisRequestModel
 from model.metric_category import MetricCategory
 from clustering.cluster import get_cluster
+from clustering.advanced_cluster import get_enhanced_cluster
 from middleware.validation import validate_json, validate_email, validate_github_url
 from services.github_processor import GitHubProcessor
 from dotenv import load_dotenv
@@ -86,8 +87,20 @@ def cluters(dataset_id, repo):
   if (int(near_n) > (repos_count -1)) or (int(near_n) <= 0):
     return ErrorResponses.invalid_n(repos_count)
   
-  # If everything is OK, it continues the process
-  results = get_cluster(repos, dataset_id, repo, int(near_n))
+  # Get clustering algorithm preference (default to enhanced)
+  algorithm = request.args.get('algorithm', 'auto')
+  use_enhanced = request.args.get('enhanced', 'true').lower() == 'true'
+  
+  # Use enhanced clustering by default
+  if use_enhanced:
+    try:
+      results = get_enhanced_cluster(repos, dataset_id, repo, int(near_n), algorithm)
+      app.logger.info(f'Enhanced clustering completed for {repo} with algorithm {algorithm}')
+    except Exception as e:
+      app.logger.warning(f'Enhanced clustering failed, falling back to basic: {str(e)}')
+      results = get_cluster(repos, dataset_id, repo, int(near_n))
+  else:
+    results = get_cluster(repos, dataset_id, repo, int(near_n))
 
   return Response(results, status=200, mimetype='application/json')
 
