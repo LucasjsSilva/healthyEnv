@@ -22,6 +22,8 @@ import ChangeNModal from "../../../../../../components/ChangeNModal"
 import ProgressLoader from "../../../../../../components/ProgressLoader"
 import FeedbackWidget from "../../../../../../components/FeedbackWidget"
 import TutorialTooltip from "../../../../../../components/TutorialTooltip"
+import ClusteringControls from "../../../../../../components/ClusteringControls"
+import ClusteringQualityMetrics from "../../../../../../components/ClusteringQualityMetrics"
 import generateRecommendations from "../../../../../../utils/recommendationsEngine"
 
 enum MetricSituation {
@@ -42,6 +44,8 @@ const Repo = () => {
   const [recommendations, setRecommendations] = useState([])
   const [showAnalysisTutorial, setShowAnalysisTutorial] = useState(false)
   const [nValue, setNValue] = useState(1)
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState('auto')
+  const [clusteringInfo, setClusteringInfo] = useState(null)
 
   // Modal
   const [open, setOpen] = useState(false)
@@ -52,7 +56,7 @@ const Repo = () => {
   useEffect(() => {
     if (!router.isReady) return
     // verifyAuth()
-    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, +router.query.near)
+    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, +router.query.near, 'auto')
   }, [router.isReady])
 
   // function verifyAuth() {
@@ -68,11 +72,11 @@ const Repo = () => {
   // }
 
   // Load a repo's analysis
-  async function loadRepo(datasetId: string | string[], repoName: string | string[], n: number) {
+  async function loadRepo(datasetId: string | string[], repoName: string | string[], n: number, algorithm: string = 'auto') {
     setIsLoading(true)
 
     // API URLs
-    const urlResults = `${Constants.baseUrl}/datasets/${datasetId}/cluster/${repoName}?near_n=${n}`
+    const urlResults = `${Constants.baseUrl}/datasets/${datasetId}/cluster/${repoName}?near_n=${n}&algorithm=${algorithm}&enhanced=true`
     const urlMetricsInfo = `${Constants.baseUrl}/metrics`
     const urlMetricsCategories = `${Constants.baseUrl}/metrics/categories`
 
@@ -84,6 +88,7 @@ const Repo = () => {
 
       setSelectedRepoInfo(resultsResponse['selected'])
       setReferenceReposInfo(resultsResponse['repos'])
+      setClusteringInfo(resultsResponse['clustering_info'])
       setRequestPayloads([{
         url: urlResults,
         payload: JSON.stringify(resultsResponse, null, 2)
@@ -183,7 +188,15 @@ const Repo = () => {
   }
 
   const refreshAnalysis = (dataset: string, user: string, repo: string, n: number): void => {
-    loadRepo(dataset, `${user}/${repo}`, n)
+    loadRepo(dataset, `${user}/${repo}`, n, selectedAlgorithm)
+  }
+
+  const handleAlgorithmChange = (algorithm: string): void => {
+    setSelectedAlgorithm(algorithm)
+  }
+
+  const handleRefreshClustering = (): void => {
+    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, +router.query.near, selectedAlgorithm)
   }
 
   const handleFeedbackSubmit = async (feedbackData: any) => {
@@ -282,17 +295,26 @@ const Repo = () => {
                   openIssues={selectedRepoInfo['open_issues']}
                   contributors={selectedRepoInfo['contributors']}
                   commits={selectedRepoInfo['commits']} />
-                <span className={styles['algorithm-hint']}>
-                  Algorithm used:
-                </span>
-                <span className={styles['algorithm-title']}>
-                  Distance-based similarity
-                </span>
-                <span>
-                  This algorithm searches the dataset for the repositories most
-                  similar to the selected repository, based on their distance
-                  in the plane.
-                </span>
+                {clusteringInfo && (
+                  <>
+                    <span className={styles['algorithm-hint']}>
+                      Algorithm used:
+                    </span>
+                    <span className={styles['algorithm-title']}>
+                      {clusteringInfo.algorithm === 'auto' ? 'Automático' :
+                       clusteringInfo.algorithm === 'knn' ? 'K-Nearest Neighbors' :
+                       clusteringInfo.algorithm === 'dbscan' ? 'DBSCAN' :
+                       clusteringInfo.algorithm === 'kmeans' ? 'K-Means' :
+                       'Distance-based similarity'}
+                    </span>
+                    <span>
+                      {clusteringInfo.algorithm === 'knn' ? 'Encontra repositórios mais próximos usando distância coseno com métricas avançadas.' :
+                       clusteringInfo.algorithm === 'dbscan' ? 'Clustering baseado em densidade que detecta outliers automaticamente.' :
+                       clusteringInfo.algorithm === 'kmeans' ? 'Agrupa repositórios em clusters bem definidos usando centróides.' :
+                       'Seleciona automaticamente o melhor algoritmo baseado no tamanho do dataset.'}
+                    </span>
+                  </>
+                )}
                 <span className={styles.nearHint}>Obtaining <b>{+router.query.near}</b> similar projects.</span>
                 <div style={{ display: 'flex', flexDirection: 'row' }}>
                   <div className={styles['change-algorithm-button']} onClick={() => setOpen(true)}>
@@ -311,7 +333,21 @@ const Repo = () => {
               </div>
               {/* <NearReposPlot selectedRepoInfo={selectedRepoInfo} referenceReposInfo={referenceReposInfo} /> */}
             </div>
-            <div className={styles.section}>
+
+            {/* Clustering Controls */}
+            <ClusteringControls 
+              currentAlgorithm={selectedAlgorithm}
+              onAlgorithmChange={handleAlgorithmChange}
+              onRefresh={handleRefreshClustering}
+              isLoading={isLoading}
+            />
+
+            {/* Clustering Quality Metrics */}
+            {clusteringInfo && (
+              <ClusteringQualityMetrics clusteringInfo={clusteringInfo} />
+            )}
+
+            <div className={styles.section} id="distribution-section">
               <div className={styles.sectionHeader}>
                 <span className={styles['section-title']}>Distribution</span>
               </div>
