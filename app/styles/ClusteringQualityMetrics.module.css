@@ -1,0 +1,136 @@
+.container {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.headerIcon {
+  color: #007bff;
+  font-size: 18px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.content {
+  display: grid;
+  gap: 20px;
+}
+
+.algorithmInfo {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.algorithmBadge {
+  background: #007bff;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+.stat {
+  text-align: center;
+}
+
+.statValue {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  color: #495057;
+  margin-bottom: 4px;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.qualityMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.metric {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.metricHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.metricName {
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+}
+
+.qualityIcon {
+  font-size: 16px;
+}
+
+.metricValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: #007bff;
+  margin-bottom: 4px;
+}
+
+.metricDescription {
+  font-size: 12px;
+  color: #6c757d;
+  line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .qualityMetrics {
+    grid-template-columns: 1fr;
+  }
+  
+  .statValue {
+    font-size: 20px;
+  }
+  
+  .metricValue {
+    font-size: 18px;
+  }
+}
