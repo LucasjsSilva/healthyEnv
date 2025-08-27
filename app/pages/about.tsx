@@ -26,6 +26,48 @@ const About = () => {
           a de classificar os projetos por semelhança, onde deve ser levado em consideração apenas
           valores de referência de projetos que sejam semelhantes ao que está sendo avaliado.
         </p>
+        <h1>Metodologia dos gráficos e métricas</h1>
+        <h2>Intervalo de Confiança (IC) via Bootstrap</h2>
+        <p>
+          Quando exibido, o <b>IC 95% da mediana</b> é calculado por <i>bootstrap</i> a partir dos valores
+          observados da métrica em repositórios semelhantes. Em alto nível:
+        </p>
+        <ul>
+          <li>Reamostramos com reposição o conjunto de valores N vezes (ex.: 5.000).</li>
+          <li>Em cada reamostra, calculamos o estimador (por padrão, a mediana).</li>
+          <li>O IC 95% é dado pelos percentis 2,5% e 97,5% da distribuição dos estimadores.</li>
+        </ul>
+        <p>
+          O cálculo pode ser feito no servidor (para consistência e desempenho) e, em caso de falha,
+          há <i>fallback</i> local no navegador usando o mesmo procedimento.
+        </p>
+        <h2>Por que mediana (vs. média)?</h2>
+        <ul>
+          <li><b>Robustez a outliers:</b> dados de engenharia de software costumam ser assimétricos e com valores extremos.</li>
+          <li><b>Estabilidade:</b> a mediana representa melhor a tendência central quando a distribuição é pesada na cauda.</li>
+          <li>Exibimos a <b>média</b> como marcador adicional para referência, mas a mediana guia o IC.</li>
+        </ul>
+        <h2>Como interpretar o MetricPlot</h2>
+        <ul>
+          <li><b>Boxplot</b>: distribuição dos valores (quartis, mediana, possíveis outliers).</li>
+          <li><b>Marcador da média (todas)</b>: um “X” indica a média do grupo.</li>
+          <li><b>IC 95% (mediana)</b>: barra vertical espessa indicando o intervalo estimado para a mediana.</li>
+          <li><b>Ponto do repositório</b>: valor do projeto selecionado para comparação com a referência.</li>
+          <li>Eixo Y em <b>escala log</b> quando apropriado, para acomodar grande variação de valores.</li>
+        </ul>
+        <h2>Elipses no PCA (Near Repos)</h2>
+        <p>
+          No gráfico de repositórios semelhantes (PCA), as elipses representam <b>bandas de confiança</b>
+          aproximadas da distribuição dos pontos projetados:
+        </p>
+        <ul>
+          <li><b>68%</b>: região clara (1 desvio-padrão aproximado na projeção).</li>
+          <li><b>95%</b>: região mais ampla (≈2 desvios-padrão).</li>
+        </ul>
+        <p>
+          Elas ajudam a visualizar densidade e dispersão dos “near repos” ao redor do selecionado.
+          Os controles permitem ligar/desligar as bandas e aplicar zoom/pan para inspeção.
+        </p>
         <h1>Licenças</h1>
         <div style={{ fontFamily: 'monospace' }}>
           <span>scikit-learn</span><br /><br />
