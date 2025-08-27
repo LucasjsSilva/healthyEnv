@@ -203,6 +203,66 @@ def auth_github():
     status=200, mimetype='application/json')
 
 
+# Stats / CI endpoint
+@app.route('/stats/bootstrap_ci', methods=['POST'])
+def stats_bootstrap_ci():
+  try:
+    payload = request.get_json(force=True, silent=False) or {}
+    values = payload.get('values') or payload.get('arr') or []
+    if not isinstance(values, list) or len(values) == 0:
+      return jsonify({ 'error': 'values must be a non-empty array' }), 400
+
+    # Sanitize numeric values
+    nums = []
+    for v in values:
+      try:
+        n = float(v)
+        nums.append(n)
+      except Exception:
+        continue
+    if len(nums) == 0:
+      return jsonify({ 'error': 'no valid numeric values provided' }), 400
+
+    estimator = (payload.get('estimator') or 'median').lower()
+    iterations = int(payload.get('iterations') or 1000)
+    alpha = float(payload.get('alpha') or 0.05)
+
+    if iterations <= 0:
+      iterations = 1000
+    if not (0 < alpha < 1):
+      alpha = 0.05
+
+    def _median(a):
+      s = sorted(a)
+      m = len(s) // 2
+      if len(s) % 2 == 1:
+        return s[m]
+      return (s[m-1] + s[m]) / 2.0
+
+    def _mean(a):
+      return sum(a) / len(a) if a else float('nan')
+
+    est_fn = _median if estimator == 'median' else _mean
+
+    # Bootstrap
+    import random
+    n = len(nums)
+    stats = []
+    for _ in range(iterations):
+      sample = [nums[random.randrange(0, n)] for __ in range(n)]
+      stats.append(est_fn(sample))
+    stats.sort()
+
+    low_idx = int((alpha / 2.0) * iterations)
+    high_idx = max(0, min(iterations - 1, int((1 - alpha / 2.0) * iterations) - 1))
+    low = float(stats[low_idx])
+    high = float(stats[high_idx])
+
+    return jsonify({ 'low': low, 'high': high })
+  except Exception as e:
+    app.logger.error(f'bootstrap_ci error: {str(e)}')
+    return ErrorResponses.internal_server_error()
+
 # Admin endpoints
 @app.route('/admin/requests', methods=['GET'])
 def get_all_requests():
@@ -324,8 +384,6 @@ def process_request_manually(request_id):
     app.logger.error(f'Error manually processing request: {str(e)}')
     db.session.rollback()
     return ErrorResponses.internal_server_error()
-
-
 if __name__ == '__main__':
   app.run(debug=True)
   # serve(app, host='0.0.0.0', port=8000)
