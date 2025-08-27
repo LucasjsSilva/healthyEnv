@@ -1,16 +1,14 @@
 .grid {
   display: flex;
   flex-direction: row;
-  justify-content: space-between;
-  width: fit-content;
+  justify-content: flex-start;
+  align-items: stretch;
+  width: 100%;
   flex-wrap: wrap;
-  flex-basis: auto;
+  gap: 10px;
 }
 
-.grid::after {
-  width: var(--width);
-  content: "";
-}
+.grid::after { content: none; }
 
 .metricCategory {
   display: flex;
