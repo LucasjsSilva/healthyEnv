@@ -71,7 +71,8 @@ class RepositoryModel(db.Model):
   
   @classmethod
   def get_dataset_repos(cls, dataset_id: str):
-    return list(cls.query.filter(dataset_id == dataset_id))
+    # Correctly filter repositories by dataset_id
+    return list(cls.query.filter_by(dataset_id=dataset_id).all())
 
 
   @classmethod

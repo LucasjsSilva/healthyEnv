@@ -3,7 +3,8 @@ import json
 import requests
 import logging
 from logging.handlers import RotatingFileHandler
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
 from utils.error_responses import ErrorResponses
 from model.dataset import DatasetModel
 from model.metric import MetricModel
@@ -20,10 +21,18 @@ from nanoid import generate
 from waitress import serve
 
 # Flask settings
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, request, jsonify, make_response
 from flask_cors import CORS
 app = Flask(__name__)
-CORS(app)
+
+# CORS with credentials for session cookies
+load_dotenv()
+FRONTEND_ORIGIN = os.environ.get('FRONTEND_ORIGIN')
+if FRONTEND_ORIGIN:
+  CORS(app, supports_credentials=True, origins=[FRONTEND_ORIGIN])
+else:
+  # fallback: allow all (dev only). Consider setting FRONTEND_ORIGIN in prod
+  CORS(app, supports_credentials=True)
 
 # Load environment variables
 load_dotenv()
@@ -50,6 +59,79 @@ db_name = os.environ['DB_NAME']
 app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
+
+###########################
+# Simple in-memory sessions
+###########################
+SESSION_TTL_SECONDS = int(os.environ.get('SESSION_TTL_SECONDS', '86400'))  # 24h default
+
+# Optional Redis-backed session store for production
+try:
+  import redis  # type: ignore
+except Exception:
+  redis = None  # type: ignore
+
+REDIS_URL = os.environ.get('REDIS_URL')
+SESSION_BACKEND = 'redis' if (redis and REDIS_URL) else 'memory'
+
+if SESSION_BACKEND == 'redis':
+  _redis: Optional["redis.Redis"] = redis.Redis.from_url(REDIS_URL)  # type: ignore
+else:
+  SESSIONS = {}
+
+def _purge_expired_sessions():
+  # Only needed for in-memory store
+  if SESSION_BACKEND != 'memory':
+    return
+  now = datetime.utcnow()
+  expired = []
+  for sid, data in SESSIONS.items():
+    if now - data['created_at'] > timedelta(seconds=SESSION_TTL_SECONDS):
+      expired.append(sid)
+  for sid in expired:
+    SESSIONS.pop(sid, None)
+
+def _create_session(token: str, user: dict) -> str:
+  sid = generate(size=21)
+  if SESSION_BACKEND == 'redis':
+    payload = json.dumps({'token': token, 'user': user}).encode('utf-8')
+    _redis.setex(f"he:sess:{sid}", SESSION_TTL_SECONDS, payload)  # type: ignore
+  else:
+    _purge_expired_sessions()
+    SESSIONS[sid] = {
+      'token': token,
+      'user': user,
+      'created_at': datetime.utcnow(),
+    }
+  return sid
+
+def _get_session_from_request():
+  sid = request.cookies.get('he_session')
+  if not sid:
+    return None
+  if SESSION_BACKEND == 'redis':
+    raw = _redis.get(f"he:sess:{sid}")  # type: ignore
+    if not raw:
+      return None
+    try:
+      data = json.loads(raw.decode('utf-8'))
+    except Exception:
+      return None
+    return {'token': data.get('token'), 'user': data.get('user')}
+  else:
+    _purge_expired_sessions()
+    return SESSIONS.get(sid)
+
+def _delete_session(sid: Optional[str]):
+  if not sid:
+    return
+  if SESSION_BACKEND == 'redis':
+    try:
+      _redis.delete(f"he:sess:{sid}")  # type: ignore
+    except Exception:
+      pass
+  else:
+    SESSIONS.pop(sid, None)
 
 
 # Creates database tables after first request
@@ -201,6 +283,221 @@ def auth_github():
   return Response(
     r.text,
     status=200, mimetype='application/json')
+
+
+# Create server session and set HttpOnly cookie
+@app.route('/auth/github_session')
+def auth_github_session():
+  code = request.args.get('code')
+  state = request.args.get('state')  # state is validated client-side; optionally validate here if stored
+  if not code:
+    return jsonify({'error': 'Missing code'}), 400
+
+  # Exchange code for token
+  r = requests.post(
+    url='https://github.com/login/oauth/access_token',
+    params={
+      'code': code,
+      'client_id': os.environ['GH_CLIENT_ID'],
+      'client_secret': os.environ['GH_CLIENT_SECRET']
+    },
+    headers={'Accept': 'application/json'}
+  )
+  if r.status_code != 200:
+    return jsonify({'error': 'Failed to exchange code'}), 502
+  token_payload = r.json()
+  access_token = token_payload.get('access_token')
+  if not access_token:
+    return jsonify({'error': 'No access_token in response'}), 502
+
+  # Fetch user info on the server
+  gh_headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  }
+  uresp = requests.get('https://api.github.com/user', headers=gh_headers)
+  if uresp.status_code != 200:
+    return jsonify({'error': 'Failed to fetch GitHub user'}), 502
+  user = uresp.json() or {}
+
+  # Try to get a primary email
+  email = None
+  try:
+    eresp = requests.get('https://api.github.com/user/emails', headers=gh_headers)
+    if eresp.status_code == 200:
+      emails = eresp.json() or []
+      primary = next((e for e in emails if e.get('primary')), None)
+      email = (primary or (emails[0] if emails else {})).get('email')
+  except Exception:
+    pass
+
+  public_user = {
+    'login': user.get('login'),
+    'name': user.get('name') or user.get('login'),
+    'email': email,
+    'profilePicture': user.get('avatar_url'),
+    'timestamp': int(datetime.utcnow().timestamp() * 1000)
+  }
+
+  sid = _create_session(access_token, public_user)
+
+  resp = make_response(jsonify(public_user))
+  cookie_secure = os.environ.get('COOKIE_SECURE', 'false').lower() == 'true'
+  resp.set_cookie(
+    'he_session',
+    sid,
+    max_age=SESSION_TTL_SECONDS,
+    httponly=True,
+    samesite='Lax',
+    secure=cookie_secure,
+    path='/'
+  )
+  return resp
+
+
+@app.route('/auth/me')
+def auth_me():
+  sess = _get_session_from_request()
+  if not sess:
+    return jsonify({'authenticated': False}), 200
+  return jsonify({'authenticated': True, 'user': sess['user']}), 200
+
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+  sid = request.cookies.get('he_session')
+  if sid:
+    SESSIONS.pop(sid, None)
+  resp = make_response(jsonify({'ok': True}))
+  cookie_secure = os.environ.get('COOKIE_SECURE', 'false').lower() == 'true'
+  resp.set_cookie('he_session', '', expires=0, httponly=True, samesite='Lax', secure=cookie_secure, path='/')
+  return resp
+
+
+############################
+# Auth guard and user helpers
+############################
+def require_auth(fn):
+  from functools import wraps
+  @wraps(fn)
+  def _wrap(*args, **kwargs):
+    sess = _get_session_from_request()
+    if not sess:
+      return jsonify({'error': 'unauthorized'}), 401
+    request.he_user = sess['user']  # type: ignore[attr-defined]
+    request.he_token = sess['token']  # type: ignore[attr-defined]
+    return fn(*args, **kwargs)
+  return _wrap
+
+
+@app.route('/me')
+@require_auth
+def me():
+  return jsonify({'authenticated': True, 'user': request.he_user})
+
+
+@app.route('/me/repos')
+@require_auth
+def my_repos():
+  try:
+    headers = {
+      'Authorization': f"Bearer {request.he_token}",
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+    # Up to 100 repos; frontend can handle client-side filtering/pagination for now
+    resp = requests.get('https://api.github.com/user/repos?per_page=100&sort=updated', headers=headers)
+    return Response(resp.text, status=resp.status_code, mimetype='application/json')
+  except Exception as e:
+    app.logger.error(f'/me/repos error: {str(e)}')
+    return ErrorResponses.internal_server_error()
+
+
+############################
+# Dataset management
+############################
+@app.route('/datasets', methods=['POST'])
+@require_auth
+@validate_json('name', 'description')
+def create_dataset():
+  try:
+    payload = request.get_json() or {}
+    ds = DatasetModel(
+      id=generate(size=10),
+      name=payload['name'],
+      description=payload['description'],
+      repo_count=0,
+      author=request.he_user.get('login')
+    )
+    db.session.add(ds)
+    db.session.commit()
+    return jsonify({
+      'id': ds.id,
+      'name': ds.name,
+      'description': ds.description,
+      'repo_count': ds.repo_count,
+      'author': ds.author,
+    }), 201
+  except Exception as e:
+    app.logger.error(f'create_dataset error: {str(e)}')
+    db.session.rollback()
+    return ErrorResponses.internal_server_error()
+
+
+############################
+# Submit and process repository
+############################
+@app.route('/datasets/<dataset_id>/request_and_process', methods=['POST'])
+@require_auth
+@validate_json('repo_url')
+def request_and_process(dataset_id: str):
+  # Validate dataset
+  if not DatasetModel.find_dataset(dataset_id):
+    return ErrorResponses.non_existent_dataset
+
+  data = request.get_json() or {}
+  repo_url = data['repo_url']
+
+  # Optional extra validations
+  if not validate_github_url(repo_url):
+    return jsonify({'error': 'Invalid GitHub repository URL'}), 400
+
+  try:
+    # 1) Create analysis request as RECEIVED
+    analysis_request = AnalysisRequestModel(
+      generate(size=10),
+      dataset_id,
+      request.he_user.get('name') or request.he_user.get('login'),
+      request.he_user.get('email') or f"{request.he_user.get('login')}@users.noreply.github.com",
+      repo_url
+    )
+    db.session.add(analysis_request)
+    db.session.commit()
+
+    # 2) Mark IN PROGRESS
+    from model.analysis_request import AnalysisStatusEnum
+    analysis_request.status = AnalysisStatusEnum.IN_PROGRESS
+    db.session.commit()
+
+    # 3) Process repository
+    processor = GitHubProcessor()
+    processor.add_repository_to_dataset(
+      dataset_id=dataset_id,
+      repo_url=repo_url,
+      submitter_name=analysis_request.name
+    )
+
+    # 4) Mark DONE
+    analysis_request.status = AnalysisStatusEnum.DONE
+    db.session.commit()
+
+    return jsonify({'request': analysis_request.to_dict(), 'status': 'DONE'}), 200
+  except Exception as e:
+    # User asked to proceed without error-state expansion. We'll rollback and return 500.
+    app.logger.error(f'request_and_process error: {str(e)}')
+    db.session.rollback()
+    return ErrorResponses.internal_server_error()
 
 
 # Stats / CI endpoint
