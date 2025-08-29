@@ -4,3 +4,37 @@
   max-width: 1280px;
   padding: 16px;
 }
+
+/* Responsive grid to arrange cards nicely on large screens */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 20px 22px;
+  margin: 14px 0;
+}
+
+.card h2, .card h3 {
+  margin-top: 6px;
+}
+
+/* Mantém cards claros também no modo escuro para maior contraste com o fundo escuro */
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.12);
+  }
+}

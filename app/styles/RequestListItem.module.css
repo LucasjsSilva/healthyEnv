@@ -33,14 +33,14 @@
 }
 
 .status {
-  /* width: 70px; */
-  font-size: 18px;
-  width: 120px;
+  /* Container for right-side action */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   text-align: end;
-  background-color: #c9cfde;
-  width: fit-content;
-  padding: 4px 12px;
-  border-radius: 20px;
+  background: transparent;
+  padding: 0;
+  margin: 0;
 }
 
 .name {

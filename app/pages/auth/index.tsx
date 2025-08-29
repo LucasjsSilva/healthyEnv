@@ -3,7 +3,7 @@ import Head from 'next/head'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGithub } from "@fortawesome/free-brands-svg-icons";
 import Link from "next/link";
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Dots } from 'react-activity'
 import "react-activity/dist/Dots.css";
 import Router, { useRouter } from "next/router";
@@ -13,8 +13,29 @@ export default function Auth() {
   const router = useRouter()
   const [showAuthOptions, setShowAuthOptions] = useState(false);
 
+  // Generate a cryptographically random state to protect the OAuth flow
+  const oauthState = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    const arr = new Uint8Array(16)
+    window.crypto.getRandomValues(arr)
+    // base64url
+    const raw = Array.from(arr).map(b => String.fromCharCode(b)).join('')
+    const b64 = btoa(raw).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    try { sessionStorage.setItem('oauth_state', b64) } catch {}
+    return b64
+  }, [])
+
+  const authorizeHref = useMemo(() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    const next = router.query.next ? encodeURIComponent(String(router.query.next)) : ''
+    const redirect = encodeURIComponent(`${origin}/auth/github?next=${next}`)
+    const scope = encodeURIComponent('read:user user:email')
+    return `https://github.com/login/oauth/authorize?client_id=${Constants.ghCliendId}&scope=${scope}&redirect_uri=${redirect}&state=${oauthState}`
+  }, [router.query.next, oauthState])
+
   function checkCurrentAuth() {
-    const data = JSON.parse(localStorage.getItem('userData'))
+    let data: any = null
+    try { data = JSON.parse(sessionStorage.getItem('userData') as any) } catch {}
 
     if (data == undefined) {
       setShowAuthOptions(true)
@@ -43,7 +64,7 @@ export default function Auth() {
           <span className={styles.subtitle}>
             Log in or sign up with one of the following options:
           </span>
-          <Link href={`https://github.com/login/oauth/authorize?client_id=${Constants.ghCliendId}&scope=user:email&redirect_uri=http://localhost:3000/auth/github?next=${router.query.next}`}>
+          <Link href={authorizeHref}>
             <div className={styles.option}>
               <FontAwesomeIcon icon={faGithub} />
               <span className={styles.optionLabel}>GitHub</span>

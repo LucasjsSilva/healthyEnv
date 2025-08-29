@@ -24,4 +24,33 @@
 .subtitle {
   font-size: 20px;
   padding-bottom: 5px;
+  color: #4B5563;
+  font-weight: 500;
+}
+
+.description {
+  font-size: 14px;
+  color: #6B7280;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.notice.success {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border-left: 4px solid #10B981;
+}
+
+.notice.error {
+  background-color: #FEF2F2;
+  color: #B91C1C;
+  border-left: 4px solid #EF4444;
 }

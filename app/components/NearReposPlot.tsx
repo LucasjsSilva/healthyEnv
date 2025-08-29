@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic';
 import PlotLoadingIndicator from './PlotLoadingIndicator';
 import useWindowDimensions from "../utils/useWindowDimensions"
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 const Plot = dynamic(() => import('react-plotly.js'), {
   ssr: false,
@@ -73,6 +73,17 @@ const NearReposPlot = (props: NearReposPlotProps) => {
     .map((r: any) => ({ x: r['x'] as number, y: r['y'] as number }))
     .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y))
   const [showCI, setShowCI] = useState(true)
+  // Persist toggle in localStorage
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('nearRepos_showCI')
+      if (v === '0') setShowCI(false)
+      if (v === '1') setShowCI(true)
+    } catch {}
+  }, [])
+  useEffect(() => {
+    try { localStorage.setItem('nearRepos_showCI', showCI ? '1' : '0') } catch {}
+  }, [showCI])
   const ellipse95 = useMemo(() => (showCI ? computeEllipse(nearPoints, CHI2_95) : null), [showCI, nearPoints])
   const ellipse68 = useMemo(() => (showCI ? computeEllipse(nearPoints, CHI2_68) : null), [showCI, nearPoints])
 
@@ -84,6 +95,14 @@ const NearReposPlot = (props: NearReposPlotProps) => {
     if (!Number.isFinite(mx) || !Number.isFinite(my)) return null
     return { x: mx, y: my }
   }, [nearPoints])
+
+  // Simple distance helper (Euclidean in PCA space)
+  const dist = (x: number, y: number) => {
+    if (!Number.isFinite(sx) || !Number.isFinite(sy) || !Number.isFinite(x) || !Number.isFinite(y)) return NaN
+    const dx = x - sx
+    const dy = y - sy
+    return Math.hypot(dx, dy)
+  }
 
   // Compute a focused view window around the selected repo + near points
   const sx = Number(props.selectedRepoInfo['x'])
@@ -126,6 +145,13 @@ const NearReposPlot = (props: NearReposPlotProps) => {
           Mostrar IC (68% e 95%)
         </label>
       </div>
+      {/* Loading/empty hint for near repos */}
+      {props.referenceReposInfo && props.referenceReposInfo.length > 0 && near.length === 0 && (
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>carregando repositórios próximos…</div>
+      )}
+      {props.referenceReposInfo && props.referenceReposInfo.length === 0 && (
+        <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>nenhum dado para exibir</div>
+      )}
       <Plot
       data={[
         // Confidence bands (filled polygons) first so points overlay them
@@ -159,6 +185,8 @@ const NearReposPlot = (props: NearReposPlotProps) => {
           type: 'scatter',
           mode: 'markers',
           marker: { color: '#E66E6E', size: 6, opacity: 0.35 },
+          hovertemplate: '%{text}<br>distância: %{customdata:.3f}<extra></extra>',
+          customdata: far.map((repo: any) => dist(Number(repo['x']), Number(repo['y']))),
         },
         {
           x: near.map((repo: any) => repo['x']),
@@ -168,6 +196,8 @@ const NearReposPlot = (props: NearReposPlotProps) => {
           type: 'scatter',
           mode: 'markers',
           marker: { color: '#2ca02c', size: 9 },
+          hovertemplate: '%{text}<br>(x,y): (%{x:.3f}, %{y:.3f})<br>distância: %{customdata:.3f}<extra></extra>',
+          customdata: near.map((repo: any) => dist(Number(repo['x']), Number(repo['y']))),
         },
         ...(meanPoint ? [{
           x: [meanPoint.x],

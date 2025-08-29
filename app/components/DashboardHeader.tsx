@@ -6,14 +6,24 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRightFromBracket, faBars, faClose } from '@fortawesome/free-solid-svg-icons';
 import AccountMenuButton from './AccountMenuButton';
 import Router, { useRouter } from "next/router"
+import axios from 'axios';
+import Constants from '../utils/constants';
+
+interface UserInfo {
+  profilePicture?: string;
+  name?: string;
+  login?: string;
+  email?: string;
+  [key: string]: any;
+}
 
 interface SelectedIndex {
-  selectedIndex: number
+  selectedIndex: number;
 }
 
 export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
 
-  const [userInfo, setUserInfo] = useState({})
+  const [userInfo, setUserInfo] = useState<UserInfo>({})
   const [showDrawer, setShowDrawer] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
 
@@ -22,20 +32,30 @@ export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
   function getUserInfo() {
     if (typeof window !== "undefined") {
       try {
-        const data = localStorage.getItem('userData')
-        setUserInfo(JSON.parse(data))
-        setIsLoggedIn(true)
-      } catch (e) { }
+        const data = sessionStorage.getItem('userData')
+        if (data) {
+          const userData: UserInfo = JSON.parse(data)
+          setUserInfo(userData)
+          setIsLoggedIn(true)
+        }
+      } catch (e) {
+        console.error('Failed to parse user data:', e)
+      }
     }
   }
 
-  function logout() {
-    localStorage.removeItem('userData')
+  async function logout() {
+    try {
+      // invalidate server session (HttpOnly cookie)
+      await axios.post(`${Constants.baseUrl}/auth/logout`, {}, { withCredentials: true })
+    } catch (e) { /* ignore */ }
+    try { sessionStorage.removeItem('userData') } catch {}
     Router.push('/')
   }
 
   function verifyAuth() {
-    const data = JSON.parse(localStorage.getItem('userData'))
+    let data: any = null
+    try { data = JSON.parse(sessionStorage.getItem('userData') as any) } catch {}
 
     if (data == undefined) {
       return
@@ -64,10 +84,15 @@ export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
               ? <span className={styles.navLink} style={{ color: '#111', fontWeight: 'bold' }}>Repository analysis</span>
               : <span className={styles.navLink}>Repository analysis</span>}
         </Link>
-        <Link href='/dashboard/requests'>
+        <Link href='/dashboard/submit'>
             {selectedIndex == 2
-              ? <span className={styles.navLink} style={{ color: '#111', fontWeight: 'bold' }}>Submit a repository</span>
-              : <span className={styles.navLink}>Submit a repository</span>}
+              ? <span className={styles.navLink} style={{ color: '#111', fontWeight: 'bold' }}>Submit repository</span>
+              : <span className={styles.navLink}>Submit repository</span>}
+        </Link>
+        <Link href='/dashboard/submissions'>
+            {selectedIndex == 3
+              ? <span className={styles.navLink} style={{ color: '#111', fontWeight: 'bold' }}>My submissions</span>
+              : <span className={styles.navLink}>My submissions</span>}
         </Link>
         {/* <Link href='/dashboard/help'>
           <a>
@@ -93,13 +118,30 @@ export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
+        <div className={styles.mobileMenu}>
+          <div className={styles.menuButton} onClick={() => setShowDrawer(!showDrawer)}>
+            <FontAwesomeIcon icon={faBars} style={{ fontSize: '20px' }} />
+          </div>
+          <div className={styles.logo}>
+            <Link href='/dashboard/datasets'>
+              <Image src="/logo.svg" alt="Logo" width={150} height={30} />
+            </Link>
+          </div>
+          <div className={styles.accountMenu}>
+            {isLoggedIn && userInfo && (
+              <AccountMenuButton 
+                profilePicture={userInfo?.profilePicture || ''}
+                userName={userInfo?.name || userInfo?.login || 'User'}
+                userEmail={userInfo?.email || ''}
+                onLogout={logout}
+              />
+            )}
+          </div>
+        </div>
         <div style={{
           display: 'flex',
           alignItems: 'center',
         }}>
-          <div className={styles.drawerButton} onClick={() => setShowDrawer(!showDrawer)}>
-            <FontAwesomeIcon icon={faBars} />
-          </div>
           <Link href='/'>
             <span className={styles.title}>HealthyEnv</span>
           </Link>
@@ -108,10 +150,15 @@ export default function DashboardHeader({ selectedIndex }: SelectedIndex) {
                 ? <span className={styles.link} style={{ color: '#FFF', fontWeight: 'bold' }}>Repository analysis</span>
                 : <span className={styles.link}>Repository analysis</span>}
           </Link>
-          <Link href='/dashboard/requests'>
+          <Link href='/dashboard/submit'>
+              {selectedIndex == 3
+                ? <span className={styles.link} style={{ color: '#FFF', fontWeight: 'bold' }}>Submit repository</span>
+                : <span className={styles.link}>Submit repository</span>}
+          </Link>
+          <Link href='/dashboard/submissions'>
               {selectedIndex == 2
-                ? <span className={styles.link} style={{ color: '#FFF', fontWeight: 'bold' }}>Submit a repository</span>
-                : <span className={styles.link}>Submit a repository</span>}
+                ? <span className={styles.link} style={{ color: '#FFF', fontWeight: 'bold' }}>My submissions</span>
+                : <span className={styles.link}>My submissions</span>}
           </Link>
           {/* <Link href='/dashboard/help'>
             <a>

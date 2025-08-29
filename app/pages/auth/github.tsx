@@ -21,59 +21,38 @@ export default function GitHub() {
   async function requestGitHubToken() {
     try {
       const code = router.query.code;
-      
+      const state = router.query.state;
+
       if (!code) {
         throw new Error('Authorization code not received');
       }
 
-      // Autentica o usuário para obter token
-      const response = await axios.get(`${Constants.baseUrl}/auth/github_token?code=${code}`);
-      
-      if (!response.data.access_token) {
-        throw new Error('Failed to obtain access token');
+      // CSRF protection: validate state from sessionStorage
+      let expectedState: string | null = null
+      try { expectedState = sessionStorage.getItem('oauth_state') } catch {}
+      if (!state || !expectedState || state !== expectedState) {
+        throw new Error('Invalid OAuth state');
+      }
+      // Clear the state once used
+      try { sessionStorage.removeItem('oauth_state') } catch {}
+
+      // Establish server-side session and receive public user info
+      const sessionRes = await axios.get(
+        `${Constants.baseUrl}/auth/github_session?code=${code}&state=${state}`,
+        { withCredentials: true }
+      );
+      const user = sessionRes.data || {};
+      if (!user.login) {
+        throw new Error('Failed to establish session');
       }
 
-      // Obter dados do usuário
-      const userDataRes = await axios.get(`https://api.github.com/user`, {
-        headers: {
-          'Accept': 'application/vnd.github+json',
-          'Authorization': `token ${response.data.access_token}`
-        }
-      });
-
-      if (!userDataRes.data.login) {
-        throw new Error('Failed to fetch user data');
-      }
-
-      // Tentar obter email do usuário (pode ser null se privado)
-      let userEmail = userDataRes.data.email;
-      
-      // Se o email não estiver disponível, buscar emails do usuário
-      if (!userEmail) {
-        try {
-          const emailsRes = await axios.get(`https://api.github.com/user/emails`, {
-            headers: {
-              'Accept': 'application/vnd.github+json',
-              'Authorization': `token ${response.data.access_token}`
-            }
-          });
-          
-          // Procurar pelo email primário ou o primeiro verificado
-          const primaryEmail = emailsRes.data.find(email => email.primary);
-          const verifiedEmail = emailsRes.data.find(email => email.verified);
-          userEmail = primaryEmail?.email || verifiedEmail?.email || emailsRes.data[0]?.email;
-        } catch (emailError) {
-          console.warn('Could not fetch user emails:', emailError);
-        }
-      }
-
+      // Store only non-sensitive user info in sessionStorage
       saveUserInfo('userData', JSON.stringify({
-        'token': response.data.access_token,
-        'login': userDataRes.data.login,
-        'name': userDataRes.data.name,
-        'email': userEmail,
-        'profilePicture': userDataRes.data.avatar_url,
-        'timestamp': Date.now(),
+        login: user.login,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        timestamp: Date.now(),
       }));
 
       const path = router.query.next && router.query.next !== 'undefined'
@@ -90,7 +69,7 @@ export default function GitHub() {
 
   function saveUserInfo(key: string, value: string) {
     if (typeof window !== "undefined") {
-      localStorage.setItem(key, value)
+      try { sessionStorage.setItem(key, value) } catch {}
     }
   }
 

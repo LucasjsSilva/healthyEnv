@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faChevronRight } from '@fortawesome/free-solid-svg-icons'
 import { useState, useEffect } from 'react'
+import Router from 'next/router'
 
 export default function Home() {
   const [showTutorial, setShowTutorial] = useState(false)
@@ -70,19 +71,30 @@ export default function Home() {
               repository based on hundreds of other repositories in our dataset.
             </span>
             <div className={styles.linksList}>
-              <div id="analyze-button">
+              <div id="analyze-button" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                 <Link href='/dashboard/datasets' className={`
                 bg-blue-500 text-white px-5 py-3 rounded-full shadow-md cursor-pointer
               `}>
                   Explore the dataset
                 </Link>
+                <button
+                  onClick={() => {
+                    try {
+                      const data = sessionStorage.getItem('userData')
+                      if (!data) {
+                        Router.push('/auth?next=/dashboard/requests')
+                      } else {
+                        Router.push('/dashboard/requests')
+                      }
+                    } catch {
+                      Router.push('/auth?next=/dashboard/requests')
+                    }
+                  }}
+                  className={`bg-green-600 text-white px-5 py-3 rounded-full shadow-md cursor-pointer`}
+                >
+                  Analyze my repositories
+                </button>
               </div>
-              {/* <div className={styles.simpleButton}>
-                <Link href='/docs'>
-                  See the docs
-                </Link>
-                <FontAwesomeIcon icon={faChevronRight} style={{ paddingLeft: 10 }} />
-              </div> */}
             </div>
           </div>
         </div>
