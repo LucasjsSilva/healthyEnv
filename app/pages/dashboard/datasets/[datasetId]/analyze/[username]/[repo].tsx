@@ -55,9 +55,9 @@ const Repo = () => {
 
   useEffect(() => {
     if (!router.isReady) return
-    // verifyAuth()
-    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, +router.query.near, 'auto')
-  }, [router.isReady])
+    // Sempre que datasetId, username, repo ou near mudar, recarrega a análise
+    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, safeNear(), 'auto')
+  }, [router.isReady, router.query.datasetId, router.query.username, router.query.repo, router.query.near])
 
   // function verifyAuth() {
   //   const data = JSON.parse(localStorage.getItem('userData'))
@@ -71,12 +71,32 @@ const Repo = () => {
   //   }
   // }
 
+  // Coerce near param to a safe number with default
+  const safeNear = (): number => {
+    const n = Number(router.query.near)
+    return Number.isFinite(n) && n > 0 ? n : 10
+  }
+
   // Load a repo's analysis
   async function loadRepo(datasetId: string | string[], repoName: string | string[], n: number, algorithm: string = 'auto') {
     setIsLoading(true)
 
     // API URLs
-    const urlResults = `${Constants.baseUrl}/datasets/${datasetId}/cluster/${repoName}?near_n=${n}&algorithm=${algorithm}&enhanced=true`
+    const ds = Array.isArray(datasetId) ? datasetId[0] : datasetId
+    const rn = Array.isArray(repoName) ? repoName[0] : repoName
+    // Ensure owner and repo are path segments, not a single encoded string
+    let owner = ''
+    let repo = ''
+    if (typeof rn === 'string' && rn.includes('/')) {
+      const parts = rn.split('/')
+      owner = parts[0]
+      repo = parts[1]
+    } else if (typeof rn === 'string') {
+      // fallback if only repo was provided
+      owner = String(router.query.username || '')
+      repo = rn
+    }
+    const urlResults = `${Constants.baseUrl}/datasets/${encodeURIComponent(String(ds))}/cluster/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}?near_n=${n}&algorithm=${encodeURIComponent(String(algorithm))}&enhanced=true`
     const urlMetricsInfo = `${Constants.baseUrl}/metrics`
     const urlMetricsCategories = `${Constants.baseUrl}/metrics/categories`
 
@@ -188,7 +208,8 @@ const Repo = () => {
   }
 
   const refreshAnalysis = (dataset: string, user: string, repo: string, n: number): void => {
-    loadRepo(dataset, `${user}/${repo}`, n, selectedAlgorithm)
+    const nn = Number.isFinite(n) && n > 0 ? n : safeNear()
+    loadRepo(dataset, `${user}/${repo}`, nn, selectedAlgorithm)
   }
 
   const handleAlgorithmChange = (algorithm: string): void => {
@@ -196,7 +217,7 @@ const Repo = () => {
   }
 
   const handleRefreshClustering = (): void => {
-    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, +router.query.near, selectedAlgorithm)
+    loadRepo(router.query.datasetId, `${router.query.username}/${router.query.repo}`, safeNear(), selectedAlgorithm)
   }
 
   const handleFeedbackSubmit = async (feedbackData: any) => {
@@ -275,7 +296,7 @@ const Repo = () => {
         showProgress={true}
       />
       {
-        !isLoading && <div className={styles.container}>
+        !isLoading && <div className={styles.container} key={String(router.query.datasetId || '')}>
             <div className={styles['clustering-summary']}>
               <div className={styles['selected-repo-info']}>
                 <div className={styles.repoInfoTitle}>
@@ -315,7 +336,7 @@ const Repo = () => {
                     </span>
                   </>
                 )}
-                <span className={styles.nearHint}>Obtaining <b>{+router.query.near}</b> similar projects.</span>
+                <span className={styles.nearHint}>Obtaining <b>{safeNear()}</b> similar projects.</span>
                 <div style={{ display: 'flex', flexDirection: 'row' }}>
                   <div className={styles['change-algorithm-button']} onClick={() => setOpen(true)}>
                     <FontAwesomeIcon icon={faArrowRightArrowLeft} />
@@ -401,10 +422,10 @@ const Repo = () => {
           </div>
       }
       <Popup open={open} onClose={closeModalRepo} >
-        <ChangeRepoModal closeModal={closeModalRepo} refreshAnalysis={refreshAnalysis} datasetId={router.query.datasetId} n={+router.query.near} />
+        <ChangeRepoModal closeModal={closeModalRepo} refreshAnalysis={refreshAnalysis} datasetId={router.query.datasetId} n={safeNear()} />
       </Popup>
       <Popup open={openN} onClose={closeModalN} >
-        <ChangeNModal closeModal={closeModalN} refreshAnalysis={refreshAnalysis} currNValue={+router.query.near} datasetCount={referenceReposInfo.length} datasetId={router.query.datasetId} userName={router.query.username} repoName={router.query.repo} />
+        <ChangeNModal closeModal={closeModalN} refreshAnalysis={refreshAnalysis} currNValue={safeNear()} datasetCount={referenceReposInfo.length} datasetId={router.query.datasetId} userName={router.query.username} repoName={router.query.repo} />
       </Popup>
       
       <FeedbackWidget onSubmit={handleFeedbackSubmit} />
